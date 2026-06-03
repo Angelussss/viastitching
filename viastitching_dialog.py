@@ -323,8 +323,8 @@ class ViaStitchingDialog(viastitching_gui):
         safe_margin = pcbnew.FromMM(0.35) 
         min_hole_dist = pcbnew.FromMM(0.5)
         
-        # --- 0. CONTROLLO BORDI SCHEDA (Edge.Cuts) ---
-        # Imposta la distanza di sicurezza dal bordo scheda (es. 0.5 mm)
+        # --- 0. Edge ccuts check (Edge.Cuts) ---
+        # set edge cuts range clearance (es. 0.5 mm)
         edge_clearance = pcbnew.FromMM(0.5) 
         check_dist = int(via.GetWidth() // 2 + edge_clearance)
         
@@ -338,23 +338,23 @@ class ViaStitchingDialog(viastitching_gui):
 
         for item in self.overlappings:
             
-            # 1. Piani di rame (Zone): ignorali
+            # 1. ignore copper filled zones 
             if type(item).__name__ in ['ZONE', 'FP_ZONE', 'PCB_ZONE', 'ZONE_CONTAINER']:
                 continue
 
-            # 2. Gestione della stessa Net (GND)
+            # 2. handling of the same net points 
             if hasattr(item, 'GetNetCode') and item.GetNetCode() == via.GetNetCode():
                 if type(item) is pcbnew.PCB_TRACK:
-                    continue # Toccare piste di GND va benissimo
+                    continue 
                 elif type(item) is pcbnew.PCB_VIA:
-                    # Se è un'altra via di GND, controlliamo la distanza tra i fori
+                    # if same net check clearance
                     dist = math.hypot(via.GetPosition().x - item.GetPosition().x, via.GetPosition().y - item.GetPosition().y)
                     if dist < (via.GetDrillValue() / 2 + item.GetDrillValue() / 2 + min_hole_dist):
                         return True
                     continue
-                # Se è un pad di GND, passa al controllo standard sotto
+                
 
-            # 3. Controlla collisioni con PAD (qualsiasi net)
+            # 3. check collisions with Pads
             if type(item) is pcbnew.PAD:
                 via_layers = set(via.GetLayerSet().Seq())
                 pad_layers = set(item.GetLayerSet().Seq())
@@ -365,12 +365,12 @@ class ViaStitchingDialog(viastitching_gui):
                     if any(item.HitTest(p, accuracy, layer) for layer in common_layers):
                         return True
                         
-            # 4. Controlla collisioni con altre VIAS (di ALTRI segnali)
+            # 4. check collisions with VIAS (other nets)
             elif type(item) is pcbnew.PCB_VIA:
                 if item.GetBoundingBox().Intersects(via_bbox):
                     return True
                     
-            # 5. Controlla collisioni con PISTE di altri segnali
+            # 5. check collisions with other tracks (other nets)
             elif type(item) is pcbnew.PCB_TRACK:
                 if item.GetBoundingBox().Intersects(via_bbox):
                     width = item.GetWidth()
@@ -645,11 +645,11 @@ def pnt2line(point: pcbnew.wxPoint, start: pcbnew.wxPoint, end: pcbnew.wxPoint):
     pnt_vec = pnt - strt
     line_len = norm(line_vec)
 
-    # --- INIZIO PATCH ANTI-CRASH ---
+    # --- ANTI CRASH ---
     if line_len < 0.0001:
         dist = norm(pnt_vec)
         return dist, strt
-    # --- FINE PATCH ---
+    # --- END PATCH ---
 
     line_unitvec = line_vec / line_len
     pnt_vec_scaled = pnt_vec / line_len
